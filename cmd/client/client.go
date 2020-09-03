@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"encoding/json"
 	"encoding/xml"
 	"io/ioutil"
@@ -11,37 +14,62 @@ import (
 )
 
 func main() {
-	if err, _ := execute(); err != nil {
-		os.Exit(1)
-	}
 
-	_, data := execute()
-	var decoded Curriencies
-	err := xml.Unmarshal(data, &decoded) // преобразовали данные в тип Curriencies
-	//log.Println(decoded)
-	log.Println(err)
+	d := "Mr.Starki`mfeelingbad"
 
-	fileForJson := transferFromXmlToJson(decoded)
-	log.Println(ExportJson(fileForJson))
+	_, f := execute(d)
+	byteConvertToPNG(f)
 
 }
 
+func byteConvertToPNG(l []byte) {
+	img, _, _ := image.Decode(bytes.NewReader(l))
+
+	//save the imgByte to file
+	out, err := os.Create("./QRImg.png")
+	defer func() {
+		if cerr := out.Close(); cerr != nil {
+			log.Println(cerr)
+			err = cerr
+		}
+	}()
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = png.Encode(out, img)
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	return
+}
+
 type Client struct {
-	Transport http.RoundTripper
-	CheckRedirect func (rew *http.Request, via []*http.Request) error
-	Jar http.CookieJar
-	Timeout time.Duration
+	Transport     http.RoundTripper
+	CheckRedirect func(rew *http.Request, via []*http.Request) error
+	Jar           http.CookieJar
+	Timeout       time.Duration
 }
 
 var DefaultClient *Client = &Client{}
 
+func execute(f string) (err error, dataExport []byte) { //получаем данные с сервера
+	//ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*30)
+	//client := &http.Client{}
+	reqUrl := "http://api.qrserver.com/v1/create-qr-code/?data=" + f + "&size=200x200"
 
-func execute() (err error, dataImport []byte) { //получаем данные с сервера
-	reqUrl := "https://raw.githubusercontent.com/netology-code/bgo-homeworks/master/10_client/assets/daily.xml"
+
+
+
 	resp, err := http.Get(reqUrl)
 	if err != nil {
 		log.Println(err)
-		return err, nil
+		return
 	}
 
 	log.Println(resp.StatusCode)
@@ -67,32 +95,26 @@ func execute() (err error, dataImport []byte) { //получаем данные 
 }
 
 type CurriencyXML struct {
-	ID string `xml:"ID,attr"`
-	NumCode int64 `xml:"NumCode"`
-	CharCode string `xml:"CharCode"`
-	Nominal int64 `xml:"Nominal"`
-	Name string `xml:"Name"`
-	Value float64 `xml:"Value"`
+	ID       string  `xml:"ID,attr"`
+	NumCode  int64   `xml:"NumCode"`
+	CharCode string  `xml:"CharCode"`
+	Nominal  int64   `xml:"Nominal"`
+	Name     string  `xml:"Name"`
+	Value    float64 `xml:"Value"`
 }
 
 type Curriencies struct {
 	//XMLName xml.Name `xml:"ValCurs"`
-	XMLName xml.Name `xml:"ValCurs"`
-	Date string `xml:"Date,attr"`
-	Name string `xml:"name,attr"`
+	XMLName  xml.Name       `xml:"ValCurs"`
+	Date     string         `xml:"Date,attr"`
+	Name     string         `xml:"name,attr"`
 	ValueIds []CurriencyXML `xml:"Valute"`
 }
 
 type CurrienciesForStore struct {
-	Code string `json:"code"`
-	Name string `json:"name"`
+	Code  string  `json:"code"`
+	Name  string  `json:"name"`
 	Value float64 `json:"value"`
-}
-
-type CurriencesJSON struct {
-	Code string
-	Name string
-	Value float64
 }
 
 func transferFromXmlToJson(file Curriencies) (anotherFile []CurrienciesForStore) {
@@ -108,10 +130,7 @@ func transferFromXmlToJson(file Curriencies) (anotherFile []CurrienciesForStore)
 	return sliceForStore
 }
 
-
-
-
-func ExportJson(sliceOfTransactions []CurrienciesForStore)  ([]byte, error) { //sliceOFTransactions []Transaction
+func ExportJson(sliceOfTransactions []CurrienciesForStore) ([]byte, error) { //sliceOFTransactions []Transaction
 
 	file, err := os.Create("currencies.json")
 	if err != nil {
@@ -141,7 +160,6 @@ func ExportJson(sliceOfTransactions []CurrienciesForStore)  ([]byte, error) { //
 	// Важно: передаём указатель, чтобы функция смогла записать данные
 	err = json.Unmarshal(encoded, &decoded)
 	log.Printf("%#v", decoded)*/
-
 
 	return encoded, nil
 }
